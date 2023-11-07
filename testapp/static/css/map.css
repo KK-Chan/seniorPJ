@@ -1,0 +1,36 @@
+#map {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  z-index: 0;
+  font-size: 10px;
+}
+
+
+/* 스크롤 스타일을 적용할 테이블 컨테이너 */
+#tableContainer {
+    height: 150px; /* 테이블 컨테이너의 높이를 300px로 지정 */
+    overflow-y: auto; /* 세로 스크롤을 활성화하여 컨테이너가 넘칠 경우 스크롤 생성 */
+}
+#tableContainer1 {
+    height: 150px; /* 테이블 컨테이너의 높이를 300px로 지정 */
+    overflow-y: auto; /* 세로 스크롤을 활성화하여 컨테이너가 넘칠 경우 스크롤 생성 */
+}
+
+/* 범례를 오른쪽 아래에 배치하기 위한 스타일 */
+.legend {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: white;
+  padding: 10px;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.color-box {
+  display: inline-block;
+  width: 20px;
+  height: 30px;
+  margin-right: 5px;
+}

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공간분석 연구실</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="../static/css/bootstrap.css"/>
+    <link rel="stylesheet" href="../static/css/20230808.css"/>
+
+    <!-- mapbox -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.js"></script>
+    <script type="text/javascript" src="../static/map.js"></script>
+
+    <!-- jquery -->
+    <script type="text/javascript" src="../static/js/jquery-3.6.0.min.js"></script>
+
+    <script type="text/javascript" src="../static/js/chosen.jquery.min.js"></script>
+    <link rel="stylesheet" href="../static/css/chosen.css"/>
+    <link rel="stylesheet" href="../static/css/component-chosen.min.css"/>
+
+    <!-- apexchart -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+
+    <!-- 등분위수 계산 위한 라이브러리 -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+
+    <!-- 맵을 감싸는 컨테이너 -->
+    <div id="map"></div>
+
+
+    <!-- 로딩 중 -->
+    <div id="loading-screen">
+        <div class="loading-icon">
+            <div class="circle"></div>
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+    </div>
+
+    <!-- 범례 영역 -->
+    <div id="legend-container"></div>
+
+
+    <!-- 사이드 메뉴바 -->
+    <nav style="">
+        <div class="menu-btn">
+            <div class="line line--1" style="margin-top: 0.5rem;"></div>
+            <div class="line line--2"></div>
+            <div class="line line--3"></div>
+        </div>
+
+        <div class="nav-links">
+            <!-- 1번 왼쪽 상자_버튼 -->
+            <div class="card border-secondary mb-3" style="width: 80%; margin-top: 3.5rem;">
+                <div class="card-header">수요</div>
+                <div class="card-body">
+                    <p class="card-text">현황파악</p>
+                    <!--<button type="button" class="btn btn-light" id="setPolygonColor">접근성 단계구분도</button>-->
+                    <!--<button type="button" class="btn btn-light" id="gridPoint">격자내 시설 수</button>-->
+                    <button type="button" class="btn btn-light" id="popEmd">읍면동 인구</button>
+                    <!--<button type="button" class="btn btn-secondary" style= "margin-top: 5px;">학교</button>-->
+                    <!--<button type="button" class="btn btn-light" style= "margin-top: 5px;">학교</button>-->
+                </div>
+            </div>
+
+            <!-- 2번 왼쪽 상자_버튼 -->
+            <div class="card border-secondary mb-3" style="width: 80%;">
+                <div class="card-header">공급</div>
+                <div class="card-body">
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="point-select">생활 SOC 선택:</label>
+                            <select data-placeholder="시설을 선택해주세요."  name="point[]" id="point-select" class="chosen-select form-control form-control-chosen"
+                                    multiple style="text-align: center; width:100%">
+                            </select>
+                        </div>
+                    </form><br>
+
+                    <label>공급 파악:</label>
+                    <button type="button" class="btn btn-light" id="layerToggle">현시설 접근성 분석</button>
+
+<!--                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="point-select">Select a Point:</label>
+                            <select name="point[]" multiple id="point-select" class="form-select" style="text-align: center;" >
+                              <option value="">-&#45;&#45;&#45;&#45; 시설의 유형을 선택하세요. -&#45;&#45;&#45;&#45;</option>
+                            </select>
+                        </div>
+                    </form>-->
+                    <!--    <h4 class="card-title">작은 도서관</h4>-->
+                    <!--     Small tables-->
+
+
+                    <!--<h6 class="card-subtitle mb-2 text-muted">operation</h6>-->
+                </div>
+            </div>
+
+
+               <div class="card border-secondary mb-3" style="width: 80%; max-height: 20rem; overflow: auto; ">
+                <div class="card-header">기타 정보</div>
+                <div class="card-body">
+
+                   <form method="post" action="{% url 'ex_polygon_data' %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="ex-polygon-select">기타 공간 정보 선택:</label>
+                            <select name="ex" id="ex-polygon-select" class="form-select" style="text-align: center;">
+                                <option value="">------- 공간 정보를 선택해주세요. -------</option>
+                                <option value="국토계획">국토계획</option>
+                                <option value="경관지구">경관지구</option>
+                                <option value="도시지역">도시지역</option>
+                            </select>
+                        </div>
+                    </form>
+
+                    <button type="button" id='trafficButton' class="btn btn-light">실시간 교통 정보</button>
+<!--                    <button type="button" id='polygonButton' class="btn btn-light">지적편집도 정보</button>-->
+                </div>
+            </div>
+
+
+           <div class="card border-secondary mb-3" style="width: 80%; max-height: 20rem; overflow: auto; ">
+                <div class="card-header">접근성 분석</div>
+                <div class="card-body">
+                    <!--기관 선택-->
+<!--
+                    <form method="post" action="{% url 'polygon_data' %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="polygon-select">공간 단위 선택:</label>
+                            <select name="city" id="polygon-select" class="form-select" style="text-align: center;">
+                                <option value="">-&#45;&#45;&#45;&#45;&#45;&#45; 공간 단위를 선택해주세요. -&#45;&#45;&#45;&#45;&#45;&#45;</option>
+                                <option value="아산시">아산시 격자(200M)/option>
+                                &lt;!&ndash;<option value="인구격자">인구격자</option>&ndash;&gt;
+                                <option value="500M격자">아산시 격자(500M)</option>
+                            </select>
+                        </div>
+                    </form><br>
+-->
+
+                    <div>
+                    <label>시설 추가:</label>
+                    <button type="button" class="btn btn-light" id="addPointButton">시설 추가</button>
+                    <button type="button" class="btn btn-light" id="exportPointButton">내보내기</button>
+                    </div>
+
+                    <label>분석:</label>
+                    <button type="button" class="btn btn-light" id="gridAccessibility">접근성 분석</button>
+                    <button type="button" class="btn btn-light" id="toggle3DLayer">3D</button>
+                    <button type="button" class="btn btn-light" id="resetLayerLegend">초기화</button>
+                </div>
+            </div>
+
+
+        </div>
+    </nav>
+
+    <div id="right-menu" class="hidden" style="overflow:auto">
+                <div class="card border-secondary mb-3" style="width: 100%; max-height: 20rem; overflow: auto;  position: sticky; top: 0; z-index:99999;">
+            <div class="card-header">시설 좌표 정보</div>
+            <div class="card-body">
+                <div id="tableContainer">
+                    <div id="tableHeader">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th scope="col">시설명</th>
+                                    <th scope="col">X 좌표</th>
+                                    <th scope="col">Y 좌표</th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                    <div id="tableBody">
+                        <table id="dataTable" class="table table-sm">
+                            <tbody>
+                                <!-- Table contents are added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="popTable">
+            <table id="popData" class="table table-sm" style="display: none;">
+                <thead>
+                    <tr>
+                        <th scope="col">읍면동</th>
+                        <th scope="col">유아</th>
+                        <th scope="col">초등학생</th>
+                        <th scope="col">중학생</th>
+                        <th scope="col">고등학생</th>
+                        <th scope="col">성인</th>
+                        <th scope="col">생산가능</th>
+                        <th scope="col">노인</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 테이블 내용은 버튼 클릭 시 JavaScript에서 추가될 것입니다. -->
+                </tbody>
+            </table>
+        </div>
+
+
+        <div id="chart2" ></div>
+        <div id="chart1" ></div>
+        <div id="text" style="background:#ffffff;"></div> <!-- HTML 요소를 정의합니다. 여기에 결과가 표시됩니다. -->
+    </div>
+
+    <button id="toggle-button">POP</button>
+
+
+    <script>
+            mapboxgl.accessToken = '{{ mapbox_access_token }}';
+            var map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mas7989/clequr0iw000o01ui9amu9rzf',
+                center: [127.002557, 36.789931],
+                zoom: 10.5,
+                minZoom: 9, // note the camel-case
+            });
+
+<!--        map.on('load', () => {-->
+<!--            map.addSource('radar', {-->
+<!--                'type': 'raster',-->
+<!--                'tiles': ['https://api.mapbox.com/v4/mas7989.3cx5xjew/1/1/1.png?access_token=pk.eyJ1IjoibWFzNzk4OSIsImEiOiJjbG84ajEwcW8wMW1oMnNxY2tzZmJrengzIn0.6aM-kFV6ZlO5W9-0jkunLw'],-->
+<!--                'coordinates': [-->
+<!--                    [127.01, 36.9],-->
+<!--                    [127.43, 36.9],-->
+<!--                    [127.43, 36.61],-->
+<!--                    [127.01, 36.61]-->
+<!--                ]-->
+<!--            });-->
+<!--            map.addLayer({-->
+<!--                id: 'radar-layer',-->
+<!--                'type': 'raster',-->
+<!--                'source': 'radar',-->
+<!--                'paint': {-->
+<!--                'raster-fade-duration': 0-->
+<!--                }-->
+<!--            });-->
+<!--        });-->
+
+        // 클릭한 폴리곤을 강조하기 위한 변수
+        var highlightedFeatures = [];
+        // 클릭한 테이블 행을 강조하기 위한 변수
+        var highlightedTableRows = [];
+
+        // 폴리곤 클릭 이벤트 핸들러
+        map.on('click', 'pop-polygon', function (e) {
+            handleFeatureClick(e.features[0], '폴리곤');
+        });
+
+        // 테이블 행 클릭 이벤트 핸들러
+        $('#popData tbody').on('click', 'tr', function () {
+            var emdName = $(this).find('td:eq(0)').text();
+            var clickedFeature = findFeatureByProperty('읍면동', emdName);
+
+            if (clickedFeature) {
+                handleFeatureClick(clickedFeature, '테이블');
+            }
+        });
+
+        // 폴리곤 또는 테이블 행 강조 함수
+        function highlightFeature(feature, featureId, sourceType) {
+            // 클릭한 폴리곤 또는 테이블 행의 데이터를 가져와서 새로운 폴리곤 레이어로 추가
+            var selectedFeatureData = feature.geometry;
+            map.addSource('highlight-source-' + featureId, {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: selectedFeatureData
+                }
+            });
+            map.addLayer({
+                id: 'highlight-polygon-' + featureId,
+                type: 'fill',
+                source: 'highlight-source-' + featureId,
+                layout: {},
+                paint: {
+                    'fill-color': '#F6B7BF', // 새로운 폴리곤 레이어의 색상
+                    'fill-opacity': 0.5
+                }
+            });
+
+            // 라벨 레이어를 추가하여 선택한 폴리곤 또는 테이블 행의 라벨 표시
+            map.addLayer({
+                id: 'label-layer-' + featureId,
+                type: 'symbol',
+                source: 'highlight-source-' + featureId,
+                layout: {
+                    'text-field': feature.properties.읍면동, // 라벨로 사용할 읍면동 이름
+                    'text-size': 12, // 라벨의 글꼴 크기 설정
+                    'text-anchor': 'center', // 라벨의 위치 설정 (top, bottom, center 등)
+                    'text-offset': [0, 0] // 라벨의 위치 조정 (x, y 좌표)
+                },
+                paint: {
+                    'text-color': '#000000' // 라벨의 글자색 설정
+                }
+            });
+
+            // 강조된 폴리곤 목록에 추가
+            highlightedFeatures.push(featureId);
+
+            if (sourceType === '테이블') {
+                // 클릭한 테이블 행을 노란색으로 하이라이트 처리
+                $('#' + featureId).css('background-color', '#F6B7BF;');
+                // 강조된 테이블 행 목록에 추가
+                highlightedTableRows.push(featureId);
+            }
+        }
+
+        // 폴리곤 또는 테이블 행 강조 해제 함수
+        function unhighlightFeature(featureId) {
+            // 강조된 폴리곤 레이어와 라벨 레이어 제거
+            map.removeLayer('highlight-polygon-' + featureId);
+            map.removeLayer('label-layer-' + featureId);
+            map.removeSource('highlight-source-' + featureId);
+
+            // 강조된 폴리곤 목록에서 제거
+            var index = highlightedFeatures.indexOf(featureId);
+            if (index !== -1) {
+                highlightedFeatures.splice(index, 1);
+            }
+
+            // 강조된 테이블 행 해제
+            index = highlightedTableRows.indexOf(featureId);
+            if (index !== -1) {
+                highlightedTableRows.splice(index, 1);
+                // 클릭한 테이블 행의 배경색 초기화
+                $('#' + featureId).css('background-color', '');
+            }
+        }
+
+        // 테이블 행 강조 함수
+        function highlightTableRow(featureId) {
+            // 클릭한 테이블 행을 노란색으로 하이라이트 처리
+            var tableRow = $('#popData tbody tr').filter(function () {
+                return $(this).find('td:eq(0)').text() === featureId;
+            });
+
+            tableRow.find('td').css('background-color', '#F6B7BF'); // 노란색 배경으로 변경
+        }
+
+        // 테이블 행 강조 해제 함수
+        function unhighlightTableRow(featureId) {
+            // 강조된 테이블 행 해제
+            var tableRow = $('#popData tbody tr').filter(function () {
+                return $(this).find('td:eq(0)').text() === featureId;
+            });
+
+            tableRow.find('td').css('background-color', ''); // 배경색 초기화
+        }
+
+        // 클릭한 폴리곤 또는 테이블 행 클릭 처리 함수
+        function handleFeatureClick(clickedFeature, sourceType) {
+            var emdName = clickedFeature.properties.읍면동;
+            var clickedFeatureId = emdName;
+
+            // 클릭한 폴리곤 또는 테이블 행이 이미 강조된 상태인지 확인
+            var isHighlighted = highlightedFeatures.includes(clickedFeatureId);
+
+            if (isHighlighted) {
+                // 이미 강조된 폴리곤 또는 테이블 행이면 강조 해제
+                unhighlightFeature(clickedFeatureId);
+                unhighlightTableRow(clickedFeatureId);
+            } else {
+                // 새로운 폴리곤 또는 테이블 행 강조
+                highlightFeature(clickedFeature, clickedFeatureId, sourceType);
+                highlightTableRow(clickedFeatureId);
+
+                if (sourceType === '테이블') {
+                    // 강조된 테이블 행 목록에 추가
+                    highlightedTableRows.push(clickedFeatureId);
+                }
+            }
+        }
+
+
+        // 특정 속성 값을 가진 피처 찾기 함수
+        function findFeatureByProperty(propertyName, propertyValue) {
+            var features = map.querySourceFeatures('pop-polygon');
+            for (var i = 0; i < features.length; i++) {
+                var feature = features[i];
+                if (feature.properties[propertyName] === propertyValue) {
+                    return feature;
+                }
+            }
+            return null;
+        }
+
+
+        $(function() {
+
+            // 다른 요소 클릭 시 초기화
+            $('#ex-polygon-select').change(function() {
+                var selectedPgn_ex = $(this).val();
+                load_ex_polygon(selectedPgn_ex);
+            });
+
+
+            // 도시 선택 폼 변경 시
+            $('#polygon-select').change(function() {
+                var selectedPgn = $(this).val();
+                load_polygon(selectedPgn);
+            });
+
+            $(document).ready(function () {
+                // Chosen.js 초기화
+                $(".chosen-select").chosen();
+
+                // 선택 항목이 변경될 때 이벤트 리스너 연결
+                $('#point-select').chosen().change(function () {
+                    // 현재 선택된 항목 가져오기
+                    var selectedPnt = $(this).val();
+
+                    // 이전에 추가한 레이어 중 선택 해제된 항목에 해당하는 레이어만 제거
+                    // 기존에 있던 레이어 아이디 중복으로인한 already 오류 발생 but 작동은 됨
+                    var existingLayers = map.getStyle().layers;
+                    for (var i = 0; i < existingLayers.length; i++) {
+                        var existingLayerId = existingLayers[i].id;
+                        var pointLayerPrefix = 'point-layer-';
+                        if (existingLayerId.startsWith(pointLayerPrefix)) {
+                            var layerId = existingLayerId.substring(pointLayerPrefix.length);
+                            if (selectedPnt.indexOf(layerId) === -1) {
+                                map.removeLayer(existingLayerId);
+                                map.removeSource(existingLayerId);
+                            }
+                        }
+                    }
+
+                    // 현재 선택된 항목으로 load_point 호출
+                    load_point(selectedPnt);
+                    showTable(selectedPnt);
+                });
+            });
+
+            $('#setPolygonColor').click(function() {
+                setPolygonColor(); // 폴리곤의 색상 지정 함수 호출
+            });
+
+            // 업종 선택 폼 변경 시
+            $('#case-select').change(function() {
+                var selectedCase = $(this).val();
+                accessibility(selectedCase);
+            });
+
+            $('#exportPointButton').click(function() {
+                export_point(); // 버튼 클릭 시 현재 맵에 있는 point-layer 내보내기
+            });
+
+            $('#addPointButton').click(function() {
+                add_point();
+            });
+
+            $('#gridPoint').click(function() {
+                grid_point();
+            });
+
+            $('#popEmd').click(function() {
+                load_pop();
+                showPopTable();
+                tablepopbasicinfo();
+            });
+
+        });
+
+        var menuBtn = document.querySelector('.menu-btn');
+        var nav = document.querySelector('nav');
+        var lineOne = document.querySelector('nav .menu-btn .line--1');
+        var lineTwo = document.querySelector('nav .menu-btn .line--2');
+        var lineThree = document.querySelector('nav .menu-btn .line--3');
+        var link = document.querySelector('nav .nav-links');
+        menuBtn.addEventListener('click', () => {
+            nav.classList.toggle('nav-open');
+            lineOne.classList.toggle('line-cross');
+            lineTwo.classList.toggle('line-fade-out');
+            lineThree.classList.toggle('line-cross');
+            link.classList.toggle('fade-in');
+        })
+
+        $(window).on('load', function() {
+            // 로딩 중 화면을 숨깁니다.
+            $('#loading-screen').fadeOut('slow');
+        });
+
+
+        var rightMenu = document.getElementById("right-menu");
+        var toggleButton = document.getElementById("toggle-button");
+
+        // 토글 버튼 클릭 시 오른쪽 메뉴와 토글 버튼을 나타내거나 숨김
+        toggleButton.addEventListener("click", function() {
+            if (rightMenu.style.right === "0px") {
+                rightMenu.style.right = "-500px"; // 오른쪽으로 이동
+                toggleButton.style.right = "0px";
+            } else {
+                rightMenu.style.right = "0px"; // 화면 안으로 이동
+                toggleButton.style.right = "500px";
+            }
+        });
+
+
+      // soc 선택 폼 변경 시
+      $(document).ready(function() {
+          loadtypeOptions();
+        });
+
+        $('#type-select').change(function() {
+          var selectedtype = $(this).val();
+          loadtype(selectedtype);
+        }); // 포인트 레이어 로드
+
+
+        $('#gridAccessibility').click(function() {
+             grid_accessibility();
+                var legendElement = document.getElementById('legend-container');
+                if (legendElement.style.display === 'none') {
+                    legendElement.style.display = 'block'; // 숨겨진 범례를 표시
+                  }
+            });
+
+        $('#resetLayerLegend').click(function() {
+                removeLayerAndLegend()
+                var legendElement = document.getElementById('legend-container');
+                if (legendElement.style.display === 'block') {
+                    legendElement.style.display = 'none'; // 숨겨진 범례를 표시
+                }
+            });
+
+        Show_layer_3D();
+
+
+
+   <!--교통 정보-->
+        map.on('load', function() {
+    map.addSource('trafficSource', {
+        type: 'vector',
+        url: 'mapbox://mapbox.mapbox-traffic-v1'
+    });
+
+    var buttonEl = document.getElementById('trafficButton');
+    var trafficLayerId = 'traffic';
+
+    // 변수를 사용하여 트래픽 레이어가 추가되었는지 추적합니다.
+    var isTrafficLayerAdded = false;
+
+    buttonEl.addEventListener('click', function(e) {
+        if (isTrafficLayerAdded) {
+            // 트래픽 레이어를 제거합니다.
+            map.removeLayer(trafficLayerId);
+            isTrafficLayerAdded = false;
+        } else {
+            // 트래픽 레이어를 추가합니다.
+            map.addLayer({
+                id: trafficLayerId,
+                source: 'trafficSource',
+                'source-layer': 'traffic',
+                type: 'line',
+                paint: {
+                    'line-width': 5,
+                    'line-color': [
+                        'case',
+                        ['==', 'low', ['get', 'congestion']],
+                        '#A0D468',
+                        ['==', 'moderate', ['get', 'congestion']],
+                        '#F6BB43',
+                        ['==', 'heavy', ['get', 'congestion']],
+                        '#FB6E52',
+                        ['==', 'severe', ['get', 'congestion']],
+                        '#DB4455',
+                        '#000000'
+                    ]
+                }
+            });
+            isTrafficLayerAdded = true;
+        }
+    });
+});
+
+     $(document).ready(function() {
+        $("#polygonButton").click(function() {
+         load_polygon_bu();
+    });
+})
+
+
+    // 버튼 클릭 시 레이어 토글
+    layerToggle.addEventListener("click", function() {
+        const currentVisibility = map.getLayoutProperty('before_polygon-layer', 'visibility');
+        const newVisibility = currentVisibility === 'none' ? 'visible' : 'none';
+        map.setLayoutProperty('before_polygon-layer', 'visibility', newVisibility);
+    });
+
+                $(document).ready(function () {
+            // 버튼 클릭 시 표를 토글하여 표시하거나 숨김
+            $("#popEmd").click(function () {
+                $("#popData").toggle();
+            });
+        });
+    </script>
+
+</body>
+
+</html>
